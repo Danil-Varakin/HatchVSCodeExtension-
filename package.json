@@ -1,0 +1,275 @@
+{
+  "name": "hatch-vscode",
+  "displayName": "Hatch",
+  "description": "Structure-aware Hatch patches in the editor: generate a patch from the edits in your buffer and move between the patch and the code",
+  "version": "0.0.1",
+  "publisher": "danil-varakin",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Danil-Varakin/HatchVSCodeExtension-.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.cjs",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Hatch spawns its core as a child process and measures mirrored paths from the .git directory, so it needs the files on a real file system."
+    },
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Patches are generated and read, but the workspace cannot choose where they are written until it is trusted.",
+      "restrictedConfigurations": [
+        "hatch.out",
+        "hatch.mirror"
+      ]
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "hatch.generate",
+        "title": "Generate Patch",
+        "category": "Hatch",
+        "icon": "$(diff-added)"
+      },
+      {
+        "command": "hatch.pickBaseline",
+        "title": "Pick Baseline File",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.clearBaselineOverride",
+        "title": "Clear Baseline Override",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.showBaselineResolution",
+        "title": "Show Baseline Resolution",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.toggle",
+        "title": "Go to the Other Side",
+        "category": "Hatch",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "hatch.goToBaseline",
+        "title": "Go to What the Hunk Replaces",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.showLog",
+        "title": "Show Log",
+        "category": "Hatch"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "hatch.generate",
+        "key": "alt+g",
+        "when": "editorTextFocus && resourceScheme == file"
+      },
+      {
+        "command": "hatch.toggle",
+        "key": "alt+o",
+        "when": "editorTextFocus && resourceScheme == file"
+      },
+      {
+        "command": "hatch.goToBaseline",
+        "key": "alt+shift+o",
+        "when": "editorTextFocus && resourceScheme == file"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "hatch.generate",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "hatch.pickBaseline",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "hatch.clearBaselineOverride",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "hatch.showBaselineResolution",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "hatch.toggle",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "hatch.goToBaseline",
+          "when": "resourceScheme == file"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "hatch.generate",
+          "when": "resourceScheme == file && editorLangId != markdown",
+          "group": "navigation@100"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Hatch",
+      "properties": {
+        "hatch.out": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "Where patches go. A directory (or a path ending with a slash) receives `<file name>.md`; any other path is used as is. With `hatch.mirror` on it is always the root of the patch tree. Config key: `generate.out`. Leave unset to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.mirror": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Keep patches in a tree of their own: the patch for `src/a/b.cc` goes to `<out>/src/a/b.cc.md`, and missing directories are created. Requires `hatch.out`; a relative one is taken from the repository root. Paths are measured from the nearest ancestor holding `.git`, so a file outside any repository is an error. Config key: `generate.mirror`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.language": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "Force a language instead of deriving it from the file extension. Config key: `generate.language`. Leave unset to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.exact": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Reproduce the file byte for byte instead of matching every line after normalization. Config key: `generate.exact`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.bridgeGap": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Stitch edits separated by up to this many unchanged non-blank lines into a single hunk. Config key: `generate.bridgeGap`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.parents.min": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Enclosing blocks every pattern carries. A hunk with no parent is not structural: drifting neighbours can land it in another function. Config key: `generate.parents.min`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.parents.max": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "string",
+              "enum": [
+                "all"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Cap on climbing up: at most this many enclosing blocks per pattern, or `\"all\"`. Config key: `generate.parents.max`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.parents.detail.base": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Bracket levels spelled out in parent headers, counting from the outermost: `0` gives `foo( ... )`, `1` gives `foo(bar( ... ))`. Readability against drift-tolerance, never correctness. Config key: `generate.parents.detail.base`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.parents.required": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Never fall back to a parentless pattern: fail instead of emitting an anchor that drift can move. Config key: `generate.parents.required`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.siblings.min": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Neighbouring significant lines every pattern carries, per side. Config key: `generate.siblings.min`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.siblings.max": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Cap of neighbouring significant lines per side. `0` forbids leaning on neighbours at all, keeping anchoring purely structural. Config key: `generate.siblings.max`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.siblings.detail.base": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Same bracket baseline for neighbour anchors. Config key: `generate.siblings.detail.base`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test --experimental-strip-types \"test/**/*.test.ts\"",
+    "check": "npm run typecheck && npm test",
+    "vscode:prepublish": "npm run build",
+    "grammars": "hatch grammars"
+  },
+  "dependencies": {
+    "hatch": "github:Danil-Varakin/hatchTs#dev"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0"
+  }
+}
