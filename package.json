@@ -1,0 +1,512 @@
+{
+  "name": "hatch-vscode",
+  "displayName": "Hatch Patches",
+  "description": "Write and maintain structure-aware patches over upstream code: generate a .hatch patch from your edits, see where every hunk lands, and move between the patch and the code",
+  "version": "0.0.1",
+  "publisher": "danil-varakin",
+  "license": "MIT",
+  "galleryBanner": {
+    "color": "#2f6b4f",
+    "theme": "dark"
+  },
+  "homepage": "https://github.com/Danil-Varakin/HatchVSCodeExtension-#readme",
+  "bugs": {
+    "url": "https://github.com/Danil-Varakin/HatchVSCodeExtension-/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Danil-Varakin/HatchVSCodeExtension-.git"
+  },
+  "type": "module",
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "patch",
+    "patches",
+    "upstream",
+    "fork",
+    "rebase",
+    "tree-sitter",
+    "chromium",
+    "hatch"
+  ],
+  "main": "./dist/extension.cjs",
+  "activationEvents": [
+    "workspaceContains:**/hatch.config.json",
+    "onLanguage:hatch"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Hatch spawns its core as a child process and measures patch paths from the .git directory, so it needs the files on a real file system."
+    },
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Patches are generated and read. Until the workspace is trusted, a patch its hatch.config.json sends outside the workspace is written only after you confirm, the hatch.out setting of the workspace is ignored, and no hatch.config.json is created.",
+      "restrictedConfigurations": [
+        "hatch.out"
+      ]
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "hatch.generate",
+        "title": "Generate Patch",
+        "category": "Hatch",
+        "icon": "$(diff-added)"
+      },
+      {
+        "command": "hatch.generateAgainstFile",
+        "title": "Generate Patch Against File…",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.showBase",
+        "title": "Show Base",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.toggle",
+        "title": "Go to the Other Side",
+        "category": "Hatch",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "hatch.goToBaseline",
+        "title": "Go to What the Hunk Replaces",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.initConfig",
+        "title": "Init Config",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.showLog",
+        "title": "Show Log",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.previewPatch",
+        "title": "Preview Patch",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.showEditsNotInPatch",
+        "title": "Show Edits Not in Patch",
+        "category": "Hatch"
+      },
+      {
+        "command": "hatch.checkAll",
+        "title": "Check All Patches",
+        "category": "Hatch",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "hatch.copyReport",
+        "title": "Copy Patch Report",
+        "category": "Hatch",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "hatch.openFailed",
+        "title": "Open Failed Patches",
+        "category": "Hatch",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "hatch.repair",
+        "title": "Repair Hunk",
+        "category": "Hatch"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "hatch.generate",
+        "key": "alt+g",
+        "mac": "cmd+alt+g",
+        "when": "editorTextFocus && resourceScheme == file"
+      },
+      {
+        "command": "hatch.toggle",
+        "key": "alt+o",
+        "mac": "cmd+alt+o",
+        "when": "editorTextFocus && (resourceScheme == file || resourceScheme == hatch-baseline)"
+      },
+      {
+        "command": "hatch.goToBaseline",
+        "key": "alt+b",
+        "mac": "cmd+alt+b",
+        "when": "editorTextFocus && (resourceScheme == file || resourceScheme == hatch-baseline)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "hatch.generate",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "hatch.generateAgainstFile",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "hatch.showBase",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "hatch.toggle",
+          "when": "resourceScheme == file || resourceScheme == hatch-baseline"
+        },
+        {
+          "command": "hatch.goToBaseline",
+          "when": "resourceScheme == file || resourceScheme == hatch-baseline"
+        },
+        {
+          "command": "hatch.initConfig",
+          "when": "isWorkspaceTrusted"
+        },
+        {
+          "command": "hatch.previewPatch",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "hatch.showEditsNotInPatch",
+          "when": "resourceScheme == file && editorLangId != hatch"
+        },
+        {
+          "command": "hatch.checkAll",
+          "when": "hatch.active"
+        },
+        {
+          "command": "hatch.copyReport",
+          "when": "hatch.active"
+        },
+        {
+          "command": "hatch.openFailed",
+          "when": "hatch.active"
+        },
+        {
+          "command": "hatch.repair",
+          "when": "false"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "hatch.generate",
+          "when": "resourceScheme == file && editorLangId != hatch && resourceExtname in hatch.extensions",
+          "group": "navigation@100"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "hatch.checkAll",
+          "when": "view == hatch.patches",
+          "group": "navigation@1"
+        },
+        {
+          "command": "hatch.openFailed",
+          "when": "view == hatch.patches",
+          "group": "navigation@2"
+        },
+        {
+          "command": "hatch.copyReport",
+          "when": "view == hatch.patches",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Hatch",
+      "properties": {
+        "hatch.out": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "Where patches go. A directory (or a path ending with a slash) receives `<file name>.hatch`; a file must be named `*.hatch`. With `upstream` set in `hatch.config.json` it is the root of the patch tree. Config key: `generate.out`. Leave unset to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.language": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "Force a language instead of deriving it from the file extension. Config key: `generate.language`. Leave unset to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.exact": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Reproduce the file byte for byte instead of matching every line after normalization. Config key: `generate.exact`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.bridgeGap": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Stitch edits separated by up to this many unchanged non-blank lines into a single hunk. Config key: `generate.bridgeGap`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.parents.min": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Enclosing blocks every pattern carries. A hunk with no parent is not structural: drifting neighbours can land it in another function. Config key: `generate.parents.min`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.parents.max": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "string",
+              "enum": [
+                "all"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Cap on climbing up: at most this many enclosing blocks per pattern, or `\"all\"`. Config key: `generate.parents.max`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.parents.detail.base": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Bracket levels spelled out in parent headers, counting from the outermost: `0` gives `foo( ... )`, `1` gives `foo(bar( ... ))`. Readability against drift-tolerance, never correctness. Config key: `generate.parents.detail.base`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.parents.required": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Never fall back to a parentless pattern: fail instead of emitting an anchor that drift can move. Config key: `generate.parents.required`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.siblings.min": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Neighbouring significant lines every pattern carries, per side. Config key: `generate.siblings.min`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.siblings.max": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Cap of neighbouring significant lines per side. `0` forbids leaning on neighbours at all, keeping anchoring purely structural. Config key: `generate.siblings.max`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.siblings.detail.base": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "scope": "resource",
+          "markdownDescription": "Same bracket baseline for neighbour anchors. Config key: `generate.siblings.detail.base`. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.base.head": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Compare the buffer with this file as of the last commit of the current branch, instead of with the file as saved on disk. `false` compares with the saved file even when the project config names a git base. With `hatch.base.branch` or `hatch.base.commit` set it is implied. Config key: `generate.base.head` (config schema 2). The three `hatch.base.*` settings name the base whole: any of them set replaces the config's `generate.base` entirely. Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.base.branch": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "Compare with the file as of the last commit of this branch, local or remote-tracking (`main`, `origin/main`). Config key: `generate.base.branch` (config schema 2). Leave unset to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.base.commit": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "Compare with the file as of this commit. Beside `hatch.base.branch` it must be a commit that branch holds. Config key: `generate.base.commit` (config schema 2). Leave unset to let `hatch.config.json` decide; setting it here overrides the project config for you only."
+        },
+        "hatch.base.eol": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "repository",
+            "worktree",
+            null
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Line endings of a base read out of git: `repository` — as git stores the file; `worktree` — as the file on disk has them, for repositories with `core.autocrlf`. Applies with a git base named by `hatch.base.head`, `hatch.base.branch` or `hatch.base.commit`. Config key: `generate.base.eol` (config schema 2). Leave unset (`null`) to let `hatch.config.json` decide; setting it here overrides the project config for you only. When neither sets it, the editor reads with `worktree` — the buffer is compared as it is on disk — while the CLI keeps `repository`."
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "hatch",
+        "aliases": [
+          "Hatch Patch",
+          "hatch"
+        ],
+        "extensions": [
+          ".hatch"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "hatch",
+        "scopeName": "text.hatch",
+        "path": "./syntaxes/hatch.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.cpp": "cpp",
+          "meta.embedded.block.c": "c",
+          "meta.embedded.block.objective-c": "objective-c",
+          "meta.embedded.block.python": "python",
+          "meta.embedded.block.javascript": "javascript",
+          "meta.embedded.block.typescript": "typescript",
+          "meta.embedded.block.typescriptreact": "typescriptreact",
+          "meta.embedded.block.rust": "rust",
+          "meta.embedded.block.java": "java",
+          "meta.embedded.block.go": "go",
+          "meta.embedded.block.kotlin": "kotlin"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "hatch",
+        "path": "./snippets/hatch.json"
+      }
+    ],
+    "configurationDefaults": {
+      "[hatch]": {
+        "files.trimTrailingWhitespace": false,
+        "files.insertFinalNewline": false,
+        "editor.formatOnSave": false,
+        "editor.renderWhitespace": "trailing",
+        "editor.detectIndentation": false,
+        "editor.insertSpaces": true,
+        "editor.tabSize": 4
+      }
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "hatch.patches",
+          "name": "Hatch Patches",
+          "when": "hatch.active"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "hatch.patches",
+        "contents": "Check every patch of the workspace against the project base, or against a branch, tag or commit — before moving to a new upstream.\n[Check All Patches](command:hatch.checkAll)"
+      }
+    ],
+    "colors": [
+      {
+        "id": "hatch.driftedHunkBackground",
+        "description": "Background of a hunk whose text the code no longer holds.",
+        "defaults": {
+          "dark": "#cca70033",
+          "light": "#cca70040",
+          "highContrast": "#cca70066",
+          "highContrastLight": "#cca70066"
+        }
+      },
+      {
+        "id": "hatch.brokenHunkBackground",
+        "description": "Background of a hunk that lands nowhere in the base.",
+        "defaults": {
+          "dark": "#f4877133",
+          "light": "#e5141440",
+          "highContrast": "#f4877166",
+          "highContrastLight": "#e5141466"
+        }
+      },
+      {
+        "id": "hatch.driftedHunkForeground",
+        "description": "Mark after the header of a drifted hunk.",
+        "defaults": {
+          "dark": "#cca700",
+          "light": "#bf8803",
+          "highContrast": "#ffd700",
+          "highContrastLight": "#bf8803"
+        }
+      },
+      {
+        "id": "hatch.brokenHunkForeground",
+        "description": "Mark after the header of a broken hunk.",
+        "defaults": {
+          "dark": "#f48771",
+          "light": "#e51400",
+          "highContrast": "#f48771",
+          "highContrastLight": "#e51400"
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build-grammar.mjs && node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test --experimental-strip-types \"test/**/*.test.ts\"",
+    "check": "npm run typecheck && npm test",
+    "vscode:prepublish": "npm run build",
+    "grammar": "node scripts/build-grammar.mjs",
+    "package": "node scripts/package.mjs",
+    "test:e2e": "npm run build && node scripts/build-e2e.mjs && vscode-test",
+    "test:packaged": "node scripts/build-e2e.mjs && node scripts/test-packaged.mjs"
+  },
+  "dependencies": {
+    "hatch": "https://github.com/Danil-Varakin/hatchTs/releases/download/v0.4.1/hatch-0.4.1.tgz"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "~1.101.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.25.0",
+    "mocha": "^12.0.3",
+    "typescript": "^5.7.0"
+  }
+}

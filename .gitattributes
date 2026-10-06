@@ -1,0 +1,6 @@
+# Committed text is LF in every checkout. `syntaxes/hatch.tmLanguage.json` is generated
+# from the core's language registry and compared with the committed file byte for byte
+# (`test/grammar.test.ts`), so git's autocrlf on Windows would make the checkout differ
+# from what the generator writes and fail the test. Patches and fixtures that need CRLF
+# make it at run time, not in the repository.
+* text=auto eol=lf
