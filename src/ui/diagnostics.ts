@@ -1,53 +1,54 @@
 import * as vscode from 'vscode';
-import type { IndexState } from '../navigation/patch-index.ts';
-import { describeFailure, failureLine } from '../navigation/failure.ts';
+import { basename } from 'node:path';
+import type { IndexState, PatchIndexCache } from '../navigation/patch-index.ts';
+import type { Problem } from '../feedback/verdict.ts';
+import { problemsOf } from '../feedback/verdict.ts';
+import { viewOf } from '../feedback/state.ts';
 
-export interface PatchDiagnostics extends vscode.Disposable {
-  publish(mdUri: vscode.Uri, state: IndexState): void;
-  clear(mdUri: vscode.Uri): void;
+/** The `source` of every squiggle this extension publishes, and what the light bulb
+ *  filters the editor's diagnostics by to find its own. */
+export const DIAGNOSTIC_SOURCE = 'hatch';
+
+const SEVERITY = {
+  error: vscode.DiagnosticSeverity.Error,
+  warning: vscode.DiagnosticSeverity.Warning,
+} as const;
+
+export function createDiagnostics(cache: PatchIndexCache): vscode.Disposable {
+  const collection = vscode.languages.createDiagnosticCollection(DIAGNOSTIC_SOURCE);
+
+  const subscription = cache.onDidChange(({ mdUri, state }) => {
+    if (state === undefined) collection.delete(mdUri);
+    else collection.set(mdUri, problemsIn(state, basename(mdUri.fsPath)).map(toDiagnostic));
+  });
+
+  return vscode.Disposable.from(subscription, collection);
 }
 
-export function createDiagnostics(): PatchDiagnostics {
-  const collection = vscode.languages.createDiagnosticCollection('hatch');
-  return {
-    publish: (mdUri, state) => collection.set(mdUri, diagnosticsFor(state)),
-    clear: (mdUri) => collection.delete(mdUri),
-    dispose: () => collection.dispose(),
-  };
-}
-
-/**
- * A squiggle goes on the line that broke, never across the whole hunk: knowing which
- * anchor failed is the difference between fixing it and rewriting the hunk.
- */
-function diagnosticsFor(state: IndexState): vscode.Diagnostic[] {
-  if (state.kind === 'parse-error') {
-    return [at(state.mdLine ?? 1, state.message, vscode.DiagnosticSeverity.Error)];
+/** Exported for the tests: what Problems lists for one patch. */
+export function problemsIn(state: IndexState, patchName: string): readonly Problem[] {
+  switch (state.kind) {
+    case 'ready':
+      return [
+        ...problemsOf(state.index.hunks, state.index),
+        ...state.index.warnings.map((w) => ({ line: w.mdLine, message: w.message, severity: 'warning' as const })),
+      ];
+    case 'parse-error':
+      return [{ line: state.mdLine ?? 1, message: state.message, severity: 'error' }];
+    default: {
+      // the patch as a whole is broken: said on its first line, the header, in the lens's words
+      const view = viewOf(state, patchName);
+      const severity = view.icon === 'error' ? ('error' as const) : ('warning' as const);
+      return [{ line: 1, message: view.message, severity, code: state.kind }];
+    }
   }
-  if (state.kind !== 'ready') return [];
-
-  const out: vscode.Diagnostic[] = [];
-  for (const hunk of state.index.hunks) {
-    if (hunk.status === 'ok' || hunk.failure === undefined) continue;
-    const line = failureLine(hunk);
-    if (line === undefined) continue;
-    out.push(
-      at(
-        line,
-        `hatch: ${describeFailure(hunk.failure, hunk.status)}`,
-        hunk.status === 'ambiguous'
-          ? vscode.DiagnosticSeverity.Warning
-          : vscode.DiagnosticSeverity.Error,
-      ),
-    );
-  }
-  return out;
 }
 
-function at(line: number, message: string, severity: vscode.DiagnosticSeverity): vscode.Diagnostic {
-  const zeroBased = Math.max(0, line - 1);
-  const range = new vscode.Range(zeroBased, 0, zeroBased, Number.MAX_SAFE_INTEGER);
-  const diagnostic = new vscode.Diagnostic(range, message, severity);
-  diagnostic.source = 'hatch';
+function toDiagnostic(problem: Problem): vscode.Diagnostic {
+  const line = Math.max(0, problem.line - 1);
+  const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
+  const diagnostic = new vscode.Diagnostic(range, problem.message, SEVERITY[problem.severity]);
+  diagnostic.source = DIAGNOSTIC_SOURCE;
+  if (problem.code !== undefined) diagnostic.code = problem.code;
   return diagnostic;
 }

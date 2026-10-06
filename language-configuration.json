@@ -1,0 +1,9 @@
+{
+  "folding": {
+    "markers": {
+      "start": "^#{1,6}[ \\t]*(?:[Mm][Aa][Tt][Cc][Hh]|[Nn][Oo][Tt][Ee])\\b",
+      "end": "^#{1,6}[ \\t]*[Ee][Nn][Dd][ \\t]*$"
+    }
+  },
+  "wordPattern": "[^\\s]+"
+}

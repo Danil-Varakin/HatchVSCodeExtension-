@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
 import { basename } from 'node:path';
-import type { Span } from '../service/protocol.ts';
+import type { HunkLink, Span } from '../service/protocol.ts';
+import type { PatchResults } from './results.ts';
+import type { BaselineDocuments } from '../baseline/documents.ts';
 import type { PatchIndex } from './patch-index.ts';
-import { baselineUriFor } from '../ui/baseline-content.ts';
 import { reveal } from '../ui/reveal.ts';
 import { trimmed } from './hunks.ts';
-import { positionOf } from './text.ts';
+import { LineMap } from './text.ts';
 
 /**
  * Where source code lands when it is not open anywhere yet. Patches open Beside, so
@@ -32,36 +33,68 @@ export async function showRange(
 }
 
 /**
- * A place in the baseline. The position is computed from the baseline TEXT, never
- * from a document the editor hands back: in the default layout that document is the
- * edited file's own buffer, and its offsets are ahead by the unsaved edits.
+ * A place in the baseline. The position is computed from the baseline TEXT the offsets
+ * were measured in, and the document is handed that same text first — whatever the
+ * document held before, or whether it was held at all.
  */
-export async function showBaselineOffset(index: PatchIndex, offset: number): Promise<void> {
-  const document = await vscode.workspace.openTextDocument(baselineUriFor(index.baselineUri));
-  const at = positionIn(index.baselineText, offset);
+export async function showBaselineOffset(
+  baselines: BaselineDocuments,
+  index: PatchIndex,
+  offset: number,
+): Promise<void> {
+  baselines.hold(index.baselineUri, index.baselineText);
+  const document = await vscode.workspace.openTextDocument(index.baselineUri);
+  const at = positionIn(new LineMap(index.baselineText), offset);
   await reveal(document, vscode.ViewColumn.Beside, new vscode.Range(at, at));
 }
 
-export async function openBaselineDiff(index: PatchIndex, base: Span): Promise<void> {
-  const span = trimmed(index.baselineText, base);
+/**
+ * The diff «base ↔ base + patch» (B1): the left half is the base the index was resolved
+ * against, the right half the core's `apply` of the patch to it — what `hatch-apply` would
+ * write. With a hunk, its `base` is selected on the left and its `final` on the right,
+ * each in its own editor: `vscode.diff` takes one selection, for the right side only.
+ * A hunk that depends on an earlier one has no place in the base, only on the right.
+ */
+export async function openPatchDiff(
+  baselines: BaselineDocuments,
+  results: PatchResults,
+  index: PatchIndex,
+  hunk?: HunkLink,
+): Promise<void> {
+  baselines.hold(index.baselineUri, index.baselineText);
+  const result = await results.prepare(index);
+  const resultText = await results.textOf(index);
   const name = basename(index.targetUri.fsPath);
+  const base = index.base.kind === 'git' ? index.base.spec : 'saved';
 
   await vscode.commands.executeCommand(
     'vscode.diff',
-    baselineUriFor(index.baselineUri),
-    index.targetUri,
-    `${name} (baseline) ↔ ${name}`,
-    {
-      preview: false,
-      selection: new vscode.Range(
-        positionIn(index.baselineText, span.start),
-        positionIn(index.baselineText, span.end),
-      ),
-    },
+    index.baselineUri,
+    result,
+    `${name} (${base}) ↔ ${name} (+ ${basename(index.mdUri.fsPath)})`,
+    { preview: false },
   );
+  if (hunk === undefined) return;
+
+  if (hunk.base !== undefined && !hunk.dependsOnEarlier) {
+    selectIn(index.baselineUri, index.baselineText, hunk.base);
+  }
+  if (hunk.final !== undefined) selectIn(result, resultText, hunk.final);
 }
 
-function positionIn(text: string, offset: number): vscode.Position {
-  const { line, character } = positionOf(text, offset);
+/** One side of an open diff: its editor is found by its document, as the diff opened it. */
+function selectIn(uri: vscode.Uri, text: string, span: Span): void {
+  const key = uri.toString();
+  const editor = vscode.window.visibleTextEditors.find((e) => e.document.uri.toString() === key);
+  if (editor === undefined) return;
+  const lines = new LineMap(text);
+  const trimmedSpan = trimmed(text, span);
+  const range = new vscode.Range(positionIn(lines, trimmedSpan.start), positionIn(lines, trimmedSpan.end));
+  editor.selection = new vscode.Selection(range.start, range.end);
+  editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+}
+
+function positionIn(lines: LineMap, offset: number): vscode.Position {
+  const { line, character } = lines.positionOf(offset);
   return new vscode.Position(line, character);
 }

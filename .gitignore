@@ -23,6 +23,8 @@ docs/
 
 # Logs and diagnostics
 *.log
+# session reports: written in the working tree, never part of the extension
+*-report.html
 npm-debug.log*
 .npm/
 
@@ -33,3 +35,17 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# local assistant files: instructions, settings, caches — kept on this machine only
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+.mcp.json
+AGENTS.md
+GEMINI.md
+.cursor/
+.cursorrules
+.windsurfrules
+.aider*
+.continue/
+.github/copilot-instructions.md

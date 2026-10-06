@@ -1,0 +1,60 @@
+name: release
+
+# A tag `vX.Y.Z` publishes that version: the tag must be the version in package.json, the
+# checks run again, the .vsix is built against the released core the manifest names, the
+# suite runs against the installed package, and the file is attached to the GitHub Release.
+#
+# Nothing is sent to the Marketplace or to Open VSX here: where the extension is published
+# is still the author's call (E5). When it is settled, the step goes in below with the
+# token as a repository secret.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: the tag is the version
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          version="$(node -p 'require("./package.json").version')"
+          if [ "$tag" != "$version" ]; then
+            echo "tag v$tag is not package.json $version" >&2
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run check
+
+      - name: VS Code for the end-to-end tests
+        uses: actions/cache@v4
+        with:
+          path: .vscode-test
+          key: vscode-test-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: xvfb-run -a npm run test:e2e
+        env:
+          # the editor's profile, short: it holds a unix socket, and the checkout is deep
+          HATCH_TEST_USER_DATA: ${{ runner.temp }}/vsc
+
+      - run: npm run package
+      - name: the suite against the installed package
+        run: xvfb-run -a npm run test:packaged
+        env:
+          # the editor's profile, short: it holds a unix socket, and the checkout is deep
+          HATCH_TEST_USER_DATA: ${{ runner.temp }}/vsc
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: '*.vsix'
+          fail_on_unmatched_files: true

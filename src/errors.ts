@@ -1,4 +1,10 @@
-import type { ServiceError } from './service/protocol.ts';
+import type { ProtocolRange, ServiceError } from './service/protocol.ts';
+import { describeRange } from './service/protocol.ts';
+
+/** The sentence to show for anything thrown: an Error's message, anything else as text. */
+export function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
 
 export class HatchServiceError extends Error {
   readonly kind: string;
@@ -14,8 +20,17 @@ export class HatchServiceError extends Error {
   }
 
   get mdLine(): number | undefined {
-    const line = this.detail?.['mdLine'];
-    return typeof line === 'number' ? line : undefined;
+    return this.numberAt('mdLine');
+  }
+
+  /** `SynthesisError`: the line of the new version, from 1, the change starts on. */
+  get newLine(): number | undefined {
+    return this.numberAt('newLine');
+  }
+
+  private numberAt(key: string): number | undefined {
+    const value = this.detail?.[key];
+    return typeof value === 'number' ? value : undefined;
   }
 }
 
@@ -60,19 +75,22 @@ export class RequestTimeoutError extends Error {
   }
 }
 
+/** The two ranges do not overlap; the message names the side that is behind. */
 export class ProtocolMismatchError extends Error {
-  readonly expected: number;
-  readonly actual: number;
+  /** what this extension works with */
+  readonly supported: ProtocolRange;
+  /** what the core serves */
+  readonly served: ProtocolRange;
 
-  constructor(expected: number, actual: number, hatchVersion: string) {
+  constructor(supported: ProtocolRange, served: ProtocolRange, hatchVersion: string) {
     super(
-      actual > expected
-        ? `hatch ${hatchVersion} speaks protocol ${actual}, this extension supports ${expected}; update the extension`
-        : `hatch ${hatchVersion} speaks protocol ${actual}, this extension requires ${expected}; update hatch`,
+      served.max < supported.min
+        ? `hatch ${hatchVersion} speaks protocol ${describeRange(served)}, this extension needs ${describeRange(supported)}; update hatch`
+        : `hatch ${hatchVersion} serves protocol ${describeRange(served)}, this extension knows ${describeRange(supported)}; update the extension`,
     );
     this.name = 'ProtocolMismatchError';
-    this.expected = expected;
-    this.actual = actual;
+    this.supported = supported;
+    this.served = served;
   }
 }
 

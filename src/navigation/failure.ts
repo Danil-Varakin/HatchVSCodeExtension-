@@ -6,7 +6,7 @@ import type { HunkLink, LinkFailure, LinkStatus } from '../service/protocol.ts';
  * the editor, or the two shells have quietly diverged.
  */
 
-/** The 1-based line in the `.md` a squiggle belongs on, or undefined if unplaceable. */
+/** The 1-based line in the `.hatch` a squiggle belongs on, or undefined if unplaceable. */
 export function failureLine(hunk: HunkLink): number | undefined {
   return hunk.failure?.mdLine ?? hunk.mdSpan?.[0];
 }

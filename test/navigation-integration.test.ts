@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { HatchService, serviceEntry } from '../src/service/client.ts';
 import type { Log } from '../src/ui/log.ts';
-import type { ApplyResultMessage, GenerateResult, ResolveResultMessage } from '../src/service/protocol.ts';
+import type { ResolveResultMessage } from '../src/service/protocol.ts';
 import {
   hunkAtMdLine,
   hunkAtOffset,
@@ -19,10 +20,11 @@ const SERVICE = serviceEntry(ROOT);
 
 const BASE = 'void a() {\n  one();\n}\n';
 const NEW = 'void a() {\n  one();\n  two();\n}\n';
-const PATH = 'feature.cc';
+// the service takes absolute paths only (protocol 2): it has no working directory of its own
+const PATH = join(tmpdir(), 'feature.cc');
 
 const silent: Log = {
-  info: () => {}, error: () => {}, protocol: () => {},
+  info: () => {}, warn: () => {}, error: () => {}, debug: () => {}, protocol: () => {},
   stderr: () => {}, show: () => {}, dispose: () => {},
 };
 
@@ -32,17 +34,17 @@ const silent: Log = {
  * disagree with the service.
  */
 async function tableFor(client: HatchService): Promise<{ md: string; hunks: ResolveResultMessage['hunks'] }> {
-  const generated = await client.request<GenerateResult>('generate', {
+  const generated = await client.request('generate', {
     baseText: BASE,
     newText: NEW,
     path: PATH,
   });
-  const resolved = await client.request<ResolveResultMessage>('resolve', {
-    md: generated.md,
+  const resolved = await client.request('resolve', {
+    patch: generated.patch,
     baseText: BASE,
     path: PATH,
   });
-  return { md: generated.md, hunks: resolved.hunks };
+  return { md: generated.patch, hunks: resolved.hunks };
 }
 
 test('a real resolve carries every coordinate navigation depends on', async () => {
@@ -117,14 +119,32 @@ test('a drifted buffer is detected and the position is carried over by line', as
     const drifted = `${'// note\n'.repeat(40)}${NEW}`;
     assert.equal(stillMatches(hunk, drifted), false, 'drift must be noticed');
 
-    const { text: applied } = await client.request<ApplyResultMessage>('apply', {
-      md,
+    const { text: applied } = await client.request('apply', {
+      patch: md,
       baseText: BASE,
       path: PATH,
     });
     const moved = translateByLines(applied, drifted, hunk.final!.start)!;
     assert.ok(moved !== undefined, 'the line still exists, so it must be found');
     assert.match(drifted.slice(moved, moved + 40), /two\(\);/);
+  } finally {
+    client.dispose();
+  }
+});
+
+test('a CRLF file is patched with CRLF lines, so final is buffer coordinates as is', async () => {
+  const crlf = (text: string): string => text.replace(/\n/g, '\r\n');
+  const base = crlf(BASE);
+  const next = crlf(NEW);
+  const client = new HatchService(SERVICE, undefined, silent);
+  try {
+    const { patch } = await client.request('generate', { baseText: base, newText: next, path: PATH });
+    const { hunks } = await client.request('resolve', { patch, baseText: base, path: PATH });
+    const hunk = hunks[0]!;
+
+    assert.equal(stillMatches(hunk, next), true, 'a CRLF buffer must not read as drift');
+    const span = trimmed(next, hunk.final!);
+    assert.match(next.slice(span.start, span.end), /^two\(\);/);
   } finally {
     client.dispose();
   }

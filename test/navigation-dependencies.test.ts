@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { DependencyTable } from '../src/navigation/dependencies.ts';
 
-const MD = 'file:///w/patches/a.cc.md';
+const MD = 'file:///w/patches/a.cc.hatch';
 const CODE = 'file:///w/a.cc';
 const OTHER = 'file:///w/b.cc';
 
@@ -58,4 +58,17 @@ test('forgetting and clearing leave nothing behind to rebuild', () => {
   table.clear();
   assert.deepEqual(table.keys(), []);
   assert.deepEqual(table.affectedBy(CODE), []);
+});
+
+test('watched is every document the tracked keys hang on, keys included, once each', () => {
+  const table = new DependencyTable();
+  table.track(MD, [CODE]);
+  table.track(OTHER, [CODE]);
+
+  assert.deepEqual([...table.watched()].sort(), [CODE, MD, OTHER].sort());
+  assert.equal(table.has(MD), true);
+
+  table.forget(MD);
+  assert.equal(table.has(MD), false);
+  assert.deepEqual([...table.watched()].sort(), [CODE, OTHER].sort());
 });

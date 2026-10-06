@@ -1,0 +1,23 @@
+{
+  "Hunk": {
+    "prefix": "match",
+    "description": "A hunk: where (# match) and what to write there (# patch)",
+    "body": [
+      "# match ${1:cpp}",
+      "    ...",
+      "    ${2:anchor before the change}",
+      "    >>>",
+      "    ${3:anchor after the change}",
+      "    ...",
+      "# end",
+      "# patch",
+      "    $0",
+      "# end"
+    ]
+  },
+  "Note": {
+    "prefix": "note",
+    "description": "Your comment on the hunk below: prose, never read by the matcher",
+    "body": ["# note", "$0", "# end"]
+  }
+}

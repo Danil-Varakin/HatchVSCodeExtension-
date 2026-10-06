@@ -1,0 +1,43 @@
+# Only what the editor runs goes into the .vsix: the bundle, the manifest, the docs and
+# node_modules/hatch (the core, spawned as a process). Everything else stays out.
+src/**
+test/**
+.vscode/**
+.github/**
+docs/**
+**/*.ts
+**/*.map
+tsconfig.json
+esbuild.mjs
+.gitignore
+CLAUDE.md
+CLAUDE.local.md
+.claude/**
+scripts/**
+examples/**
+.vscode-test.mjs
+out/**
+.vscode-test/**
+*.vsix
+# for contributors, not for the editor (E5)
+CONTRIBUTING.md
+CONTRIBUTING.ru.md
+ARCHITECTURE.md
+SECURITY.md
+
+# ---- the core -------------------------------------------------------------------------
+# `hatch` is the release tarball (package.json), so node_modules holds the core's own
+# package and its runtime closure — nothing of its build tree, its sources or its dev
+# dependencies, which the tarball does not carry.
+#
+# The editor needs two things of it: `dist/` (the service it spawns, `serviceEntry` in
+# service/client.ts) and `grammars/` (the .wasm web-tree-sitter finds beside its own
+# file). Its typings and source maps go out with the `**/*.ts` and `**/*.map` above.
+#
+# NOTE: nothing is re-included with `!` here. A negation beats every ignore rule in vsce,
+# so one `!node_modules/.../**` line would carry the typings of that package back in.
+# The development link (`npm install --no-save ../HatchTS`) cannot be packaged at all —
+# vsce refuses a path above the package root — and `npm run package` stops on it.
+
+# session reports, written beside the repository and belonging to nobody's install
+*-report.html

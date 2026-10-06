@@ -21,7 +21,8 @@ export class ServiceProcess {
   private readonly log: Log;
   private readonly events: ServiceProcessEvents;
   private child: ChildProcessWithoutNullStreams | null = null;
-  private buffer = '';
+  /** how many times a core was started: the end-to-end tests read it */
+  spawns = 0;
 
   constructor(
     servicePath: string,
@@ -42,6 +43,7 @@ export class ServiceProcess {
     if (!existsSync(this.servicePath)) throw new ServiceMissingError(this.servicePath);
 
     this.log.info(`spawning service: ${this.servicePath}`);
+    this.spawns += 1;
     const child = spawn(process.execPath, [this.servicePath], {
       env: {
         ...process.env,
@@ -53,7 +55,13 @@ export class ServiceProcess {
 
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk: string) => this.consume(chunk));
+    // A child we stopped can still have output in the pipe. It is its own, never the next
+    // child's: half a frame of it in a shared buffer would corrupt the first reply of the
+    // new process, and that request would wait forever.
+    const frames = new LineFramer((line) => {
+      if (this.child === child) this.events.onLine(line);
+    });
+    child.stdout.on('data', (chunk: string) => frames.push(chunk));
     child.stderr.on('data', (chunk: string) => this.log.stderr(chunk));
     // writing into a pipe whose far end is gone must not reach the extension host
     child.stdin.on('error', (e: Error) => this.log.error(`service stdin: ${e.message}`));
@@ -76,24 +84,32 @@ export class ServiceProcess {
   stop(): void {
     const child = this.child;
     this.child = null;
-    this.buffer = '';
     child?.kill();
   }
 
   private forget(child: ChildProcessWithoutNullStreams, reason: string): void {
     if (this.child !== child) return;
     this.child = null;
-    this.buffer = '';
     this.events.onGone(reason);
   }
+}
 
-  private consume(chunk: string): void {
+/** Newline framing of one stream: whole non-blank lines out, the unfinished tail kept. */
+export class LineFramer {
+  private buffer = '';
+  private readonly onLine: (line: string) => void;
+
+  constructor(onLine: (line: string) => void) {
+    this.onLine = onLine;
+  }
+
+  push(chunk: string): void {
     this.buffer += chunk;
     let cut = this.buffer.indexOf('\n');
     while (cut !== -1) {
       const line = this.buffer.slice(0, cut);
       this.buffer = this.buffer.slice(cut + 1);
-      if (line.trim() !== '') this.events.onLine(line);
+      if (line.trim() !== '') this.onLine(line);
       cut = this.buffer.indexOf('\n');
     }
   }

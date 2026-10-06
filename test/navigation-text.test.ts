@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { lineTextAt, positionOf } from '../src/navigation/text.ts';
+import { LineMap, positionOf } from '../src/navigation/text.ts';
 
 const TEXT = 'void a() {\n  one();\n  two();\n}\n';
 
@@ -27,12 +27,33 @@ test('the empty text has a position too', () => {
 });
 
 test('the line under an offset is what a picker row shows', () => {
-  assert.equal(lineTextAt(TEXT, 13), '  one();');
-  assert.equal(lineTextAt(TEXT, 0), 'void a() {');
+  const lines = new LineMap(TEXT);
+  assert.equal(lines.lineText(lines.positionOf(13).line), '  one();');
+  assert.equal(lines.lineText(lines.positionOf(0).line), 'void a() {');
 });
 
-test('CRLF keeps its offsets: the carriage return is part of the line', () => {
+test('CRLF: offsets count the carriage return, the line TEXT does not', () => {
   const crlf = 'a\r\nbb\r\n';
+  const lines = new LineMap(crlf);
   assert.deepEqual(positionOf(crlf, 3), { line: 1, character: 0 });
-  assert.equal(lineTextAt(crlf, 3).trim(), 'bb');
+  // the text a label or a comparison wants, with no trailing CR to trim away
+  assert.equal(lines.lineText(1), 'bb');
+  // the length offsets count, which does include it
+  assert.equal(lines.lineLength(1), 3);
+  assert.equal(lines.startOf(1), 3);
+});
+
+test('a line table answers the same as a split, line by line, on a long text', () => {
+  const text = Array.from({ length: 500 }, (_, i) => `line ${i}${i % 3 === 0 ? '\r' : ''}`).join('\n');
+  const lines = new LineMap(text);
+  let offset = 0;
+  for (const [i, line] of text.split('\n').entries()) {
+    assert.deepEqual(lines.positionOf(offset + 2), { line: i, character: 2 });
+    // the split keeps the `\r`, `lineText` does not; `lineLength` is the offset view
+    assert.equal(lines.lineText(i), line.replace(/\r$/, ''));
+    assert.equal(lines.lineLength(i), line.length);
+    assert.equal(lines.startOf(i), offset);
+    offset += line.length + 1;
+  }
+  assert.equal(lines.lineCount, 500);
 });

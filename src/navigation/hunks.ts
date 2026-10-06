@@ -1,5 +1,5 @@
 import type { HunkLink, Span } from '../service/protocol.ts';
-import { lineAt, startOfLine } from './text.ts';
+import { LineMap } from './text.ts';
 
 /**
  * Picking a hunk out of a table and trimming what it points at. Everything here is
@@ -26,7 +26,7 @@ interface Placed {
 }
 
 /**
- * From a line in the `.md` to its hunk. Prose and the gaps between hunks resolve to
+ * From a line in the `.hatch` to its hunk. Prose and the gaps between hunks resolve to
  * the nearest hunk BELOW, which is what reading order makes the expected one.
  */
 export function hunkAtMdLine(hunks: readonly HunkLink[], line: number): Hit {
@@ -70,7 +70,7 @@ export function hunkAtOffset(hunks: readonly HunkLink[], offset: number, side: S
   return { kind: 'nearest', hunk: leastBy(placed, (p) => p.span.start).hunk };
 }
 
-export function spanOf(hunk: HunkLink, side: Side): Span | undefined {
+function spanOf(hunk: HunkLink, side: Side): Span | undefined {
   return side === 'base' ? hunk.base : hunk.final;
 }
 
@@ -99,6 +99,17 @@ export function stillMatches(hunk: HunkLink, text: string): boolean {
   return text.slice(hunk.final.start, hunk.final.end) === hunk.finalText;
 }
 
+export type Placement = 'unapplied' | 'matches' | 'drifted';
+
+export function placementOf(hunk: HunkLink, buffer: string, baselineText: string): Placement {
+  if (buffer === baselineText) return 'unapplied';
+  return stillMatches(hunk, buffer) ? 'matches' : 'drifted';
+}
+
+export function placedCount(hunks: readonly HunkLink[]): number {
+  return hunks.filter((hunk) => hunk.status === 'ok').length;
+}
+
 /**
  * The fallback for a drifted buffer: carry an offset from the applied text over to
  * the buffer by finding its line again. Deliberately line-based and approximate —
@@ -109,26 +120,27 @@ export function translateByLines(
   bufferText: string,
   offset: number,
 ): number | undefined {
-  const applied = appliedText.split('\n');
-  const buffer = bufferText.split('\n');
+  // past the end of the text names no line, and guessing the last one would be exactly
+  // the plausible-wrong-place this function exists to avoid
+  if (offset < 0 || offset > appliedText.length) return undefined;
 
-  const at = lineAt(applied, offset);
-  if (at === undefined) return undefined;
+  const applied = new LineMap(appliedText);
+  const buffer = new LineMap(bufferText);
+  const at = applied.positionOf(offset);
 
-  const wanted = applied[at.line];
+  const wanted = applied.lineText(at.line);
   // a blank line identifies nothing, so translating through it would be a guess
-  if (wanted === undefined || wanted.trim() === '') return undefined;
+  if (wanted.trim() === '') return undefined;
 
   let best: number | undefined;
-  for (let i = 0; i < buffer.length; i += 1) {
-    if (buffer[i] !== wanted) continue;
-    if (best === undefined || Math.abs(i - at.line) < Math.abs(best - at.line)) best = i;
+  for (let line = 0; line < buffer.lineCount; line += 1) {
+    if (buffer.lineText(line) !== wanted) continue;
+    if (best === undefined || Math.abs(line - at.line) < Math.abs(best - at.line)) best = line;
   }
   if (best === undefined) return undefined;
 
-  const found = buffer[best];
-  if (found === undefined) return undefined;
-  return startOfLine(buffer, best) + Math.min(at.column, found.length);
+  // the column in OFFSETS, which count the `\r` the line text does not carry
+  return buffer.startOf(best) + Math.min(at.character, buffer.lineLength(best));
 }
 
 function isSpace(ch: string | undefined): boolean {

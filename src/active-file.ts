@@ -14,10 +14,13 @@ export type ActiveFile =
   | { readonly kind: 'none' }
   | { readonly kind: 'unsupported'; readonly scheme: string };
 
-export function activeFile(): ActiveFile {
+const FILES_ON_DISK: readonly string[] = ['file'];
+
+/** The active editor, if its document has one of `schemes` — files on disk unless told. */
+export function activeFile(schemes: readonly string[] = FILES_ON_DISK): ActiveFile {
   const editor = vscode.window.activeTextEditor;
   if (editor === undefined) return { kind: 'none' };
   const { document } = editor;
-  if (document.uri.scheme !== 'file') return { kind: 'unsupported', scheme: document.uri.scheme };
+  if (!schemes.includes(document.uri.scheme)) return { kind: 'unsupported', scheme: document.uri.scheme };
   return { kind: 'ok', editor, document };
 }

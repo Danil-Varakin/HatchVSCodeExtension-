@@ -1,50 +1,29 @@
-import * as vscode from 'vscode';
-import { targetFor } from './link.ts';
+import type * as vscode from 'vscode';
+import type { Project } from '../project/project.ts';
+import { isBaselineUri, sourceOfBaseline } from '../baseline/documents.ts';
+import { isPatchLink, targetFor } from './link.ts';
+import { isPatchPath } from '../patch-files.ts';
 
 /**
- * Which of the three sides `alt+O` was pressed on. The patch and the source are told
- * apart by whether the document links to a target; the baseline is recognised from the
- * tab itself, because a diff's left half is an ordinary file URI and nothing about the
- * document alone says it is being shown as a baseline.
+ * Which of the three sides Go to the Other Side was pressed on. The baseline is the
+ * `hatch-baseline` document — the left half of the diff Go to What the Hunk Replaces
+ * opens — and names its file in its
+ * own URI. The patch and the source are told apart by whether the document links to a
+ * target. A diff the user opened between two files of their own is neither: its halves
+ * are ordinary files, and each is taken for what it is.
  */
 export type Place =
-  | { readonly kind: 'patch'; readonly document: vscode.TextDocument }
-  | { readonly kind: 'source'; readonly document: vscode.TextDocument }
-  | {
-      readonly kind: 'baseline';
-      readonly document: vscode.TextDocument;
-      readonly targetUri: vscode.Uri;
-    };
+  | { readonly kind: 'patch' }
+  | { readonly kind: 'source' }
+  | { readonly kind: 'baseline'; readonly targetUri: vscode.Uri };
 
-/** Patches are `.md` — both the mirror rule and generate's own naming say so. */
-const PATCH_SUFFIX = '.md';
-
-export function placeOf(document: vscode.TextDocument, storage: vscode.Memento): Place {
-  const against = diffCounterpart(document.uri);
-  if (against !== undefined) return { kind: 'baseline', document, targetUri: against };
-
-  // checked before reading the text: a source file is not a patch however it reads,
-  // and scanning a megabyte of C++ for a marker on every keypress is wasted work
-  if (!document.uri.path.endsWith(PATCH_SUFFIX)) return { kind: 'source', document };
-
-  const link = targetFor(document.uri, document.getText(), storage);
-  return link.kind === 'ok' ? { kind: 'patch', document } : { kind: 'source', document };
+export async function placeOf(document: vscode.TextDocument, project: Project): Promise<Place> {
+  if (isBaselineUri(document.uri)) return { kind: 'baseline', targetUri: sourceOfBaseline(document.uri) };
+  return (await isPatch(document, project)) ? { kind: 'patch' } : { kind: 'source' };
 }
 
-/**
- * When this document is the LEFT half of an open diff, the right half — the file the
- * baseline is being compared against. Undefined in every other case.
- */
-function diffCounterpart(uri: vscode.Uri): vscode.Uri | undefined {
-  const key = uri.toString();
-  for (const group of vscode.window.tabGroups.all) {
-    for (const tab of group.tabs) {
-      const input: unknown = tab.input;
-      if (!(input instanceof vscode.TabInputTextDiff)) continue;
-      if (input.original.toString() === key && input.modified.toString() !== key) {
-        return input.modified;
-      }
-    }
-  }
-  return undefined;
+export async function isPatch(document: vscode.TextDocument, project: Project): Promise<boolean> {
+  // checked before asking the core: a source file is not a patch however it reads
+  if (document.uri.scheme !== 'file' || !isPatchPath(document.uri.path)) return false;
+  return isPatchLink(await targetFor(document.uri, document.getText(), project));
 }

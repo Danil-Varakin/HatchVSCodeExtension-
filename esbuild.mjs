@@ -8,8 +8,9 @@ const options = {
   bundle: true,
   platform: 'node',
   format: 'cjs',
-  // the floor engines.vscode declares: VS Code 1.85 is Electron 25, which is node 18
-  target: 'node18',
+  // the floor engines.vscode declares: VS Code 1.101 is Electron 35, which is node 22 —
+  // the node the core needs too, since it runs on the editor's own node
+  target: 'node22',
   external: ['vscode'],
   sourcemap: true,
   logLevel: 'info',
