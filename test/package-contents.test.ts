@@ -55,7 +55,7 @@ test('what must stay out of the package is named with the files that leaked', ()
   const leaks: readonly [string, string][] = [
     ['src/extension.ts', 'the extension sources'],
     ['test/e2e/fixture.ts', 'the tests and their build'],
-    ['docs/11-implementation-phases.md', 'the local docs'],
+    ['docs/notes.md', 'the local docs'],
     ['CLAUDE.md', 'the files of the assistants'],
     ['CONTRIBUTING.ru.md', 'the files for contributors'],
     ['scripts/package.mjs', 'the repository plumbing'],

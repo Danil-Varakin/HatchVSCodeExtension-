@@ -165,7 +165,7 @@ test('a patch whose file is missing names the path; a failed build points at the
   assert.equal(parse.remedy, 'show-parse-error');
 });
 
-// ---- verdict, diagnostics, highlights (docs/phase-4 §2, §3) ----
+// ---- verdict, diagnostics, highlights ----
 
 const BASE = 'void a() {\n  one();\n}\n';
 const APPLIED = 'void a() {\n  one();\n  two();\n}\n';
@@ -174,14 +174,14 @@ const okHunk = (over: Partial<HunkLink> = {}): HunkLink => ({
   base: { start: 20, end: 20 }, final: { start: 20, end: 29 }, finalText: APPLIED.slice(20, 29), ...over,
 });
 
-test('a broken anchor with no line of its own is squiggled on the first line of its hunk (phase-4 §2)', () => {
+test('a broken anchor with no line of its own is squiggled on the first line of its hunk', () => {
   const broken = okHunk({ status: 'no-match', failure: { kind: 'MatchError', message: 'no match', failedStepIndex: 1, totalSteps: 3 } });
   const [problem] = problemsOf([broken], { targetText: APPLIED, baselineText: BASE });
   assert.equal(problem?.line, 3);
   assert.equal(problem?.severity, 'error');
 });
 
-test('a hunk not applied yet, or with nothing to check, is painted neither red nor yellow (phase-4 §3)', () => {
+test('a hunk not applied yet, or with nothing to check, is painted neither red nor yellow', () => {
   const unapplied = highlightsOf([okHunk()], { targetText: BASE, baselineText: BASE });
   assert.deepEqual([unapplied.errors, unapplied.warnings], [[], []]);
   const saved = highlightsOf([okHunk()], { targetText: APPLIED, baselineText: APPLIED, base: { kind: 'saved' } });
@@ -214,7 +214,7 @@ test('a hunk status of error lands nowhere: the panel counts it broken (R2, PROT
   assert.equal(check.placed, 0);
 });
 
-// ---- failure words (phase-4 §2: the core's message, then the step and the anchor) ----
+// ---- failure words: the core's message, then the step and the anchor ----
 
 test('an anchor of many lines is quoted on one line', () => {
   const text = describeFailure({ kind: 'MatchError', message: 'm', anchorText: 'if (a) {\n    b();\n}' }, 'no-match');

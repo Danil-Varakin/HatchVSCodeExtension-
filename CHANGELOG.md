@@ -4,7 +4,7 @@ Every release names its four numbers — the extension's version, the hatch prot
 it speaks, the config schema its `hatch.*` settings mirror, the patch format its `.hatch`
 language colors — then what changed, breaking changes first. The rules behind the numbers are in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-## Unreleased — 0.0.1
+## 0.0.1 — 2026-10-06
 
 **Extension 0.0.1 · protocol 4–4 · config schema 2 · patch format 1 · VS Code 1.101+**
 

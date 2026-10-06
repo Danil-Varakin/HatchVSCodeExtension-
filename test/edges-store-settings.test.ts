@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import type { WorkspaceConfiguration } from 'vscode';
 import type { ConfigResult } from '../src/service/protocol.ts';
 
-// Audit, 2026-10-06: the index store under concurrency and bursts, and the editor settings
-// at their edges. Expectations from ARCHITECTURE ("The table of links"), docs/phase-4 §5,
-// README ("Editor settings") and CLAUDE.md / CONTRIBUTING.md (E1).
+// The index store under concurrency and bursts, and the editor settings at their edges.
+// Expectations from ARCHITECTURE ("The table of links"), README ("Editor settings") and
+// CONTRIBUTING ("Editor settings mirror the config", E1).
 
 import { IndexStore } from '../src/navigation/index-store.ts';
 import { baseFrom, chosenEol, overridesFrom, overridesParamsFrom } from '../src/settings.ts';
@@ -54,7 +54,7 @@ test('commands asking at once for one patch share one build', async () => {
   h.store.dispose();
 });
 
-test('a burst of keystrokes is one rebuild, after the pause (phase-4 §5: debounce)', async () => {
+test('a burst of keystrokes is one rebuild, after the pause', async () => {
   const h = harness({ delayMs: 30, auto: (_, n) => ({ v: `v${n}`, deps: ['a.cc'] }) });
   await h.store.get('a.hatch');
   for (let i = 0; i < 20; i += 1) {
@@ -66,7 +66,7 @@ test('a burst of keystrokes is one rebuild, after the pause (phase-4 §5: deboun
   h.store.dispose();
 });
 
-test('a view keeps the last table while the rebuild waits; a command gets the fresh one (phase-4 §5)', async () => {
+test('a view keeps the last table while the rebuild waits; a command gets the fresh one', async () => {
   const h = harness({ delayMs: 1_000, auto: (_, n) => ({ v: `v${n}`, deps: ['a.cc'] }) });
   await h.store.get('a.hatch');
   h.store.touch('a.cc');
