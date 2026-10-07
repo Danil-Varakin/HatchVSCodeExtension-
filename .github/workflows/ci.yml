@@ -82,9 +82,11 @@ jobs:
           path: HatchVSCodeExtension-/.vscode-test
           key: vscode-test-${{ runner.os }}-${{ hashFiles('HatchVSCodeExtension-/package-lock.json') }}
 
+      # dbus-run-session: without a session bus the editor's window sometimes never finishes
+      # starting on the runner ("CodeWindow: detected unresponsive", before the first test)
       - name: end-to-end tests (Linux, under a virtual display)
         if: runner.os == 'Linux'
-        run: xvfb-run -a npm run test:e2e
+        run: xvfb-run -a dbus-run-session -- npm run test:e2e
         env:
           # the editor's profile, short: it holds a unix socket, and the checkout is deep
           HATCH_TEST_USER_DATA: ${{ runner.temp }}/vsc
@@ -138,9 +140,11 @@ jobs:
           key: vscode-test-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       # installs the .vsix into a throwaway profile and runs the whole suite inside it
+      # dbus-run-session: without a session bus the editor's window sometimes never finishes
+      # starting on the runner ("CodeWindow: detected unresponsive", before the first test)
       - name: the suite against the installed package (Linux, under a virtual display)
         if: runner.os == 'Linux'
-        run: xvfb-run -a npm run test:packaged
+        run: xvfb-run -a dbus-run-session -- npm run test:packaged
         env:
           # the editor's profile, short: it holds a unix socket, and the checkout is deep
           HATCH_TEST_USER_DATA: ${{ runner.temp }}/vsc

@@ -9,12 +9,16 @@ const { hatch, quiet } = makeWorkspaces();
 // `work/<repo>/<repo>/…`, it did ("listen EINVAL"). CI names a short directory here instead.
 const userData = process.env.HATCH_TEST_USER_DATA;
 
+// A runner has no GPU and a small /dev/shm; both have hung the window on start there.
+const headless = process.platform === 'linux' ? ['--disable-gpu', '--disable-dev-shm-usage'] : [];
+
 const common = {
   version: 'stable',
   mocha: { ui: 'tdd', timeout: 60_000 },
   launchArgs: [
     '--disable-extensions',
     '--disable-workspace-trust',
+    ...headless,
     ...(userData === undefined ? [] : [`--user-data-dir=${userData}`]),
   ],
 };
